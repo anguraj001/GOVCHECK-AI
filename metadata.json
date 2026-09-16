@@ -1,0 +1,6 @@
+{
+  "name": "GOVCHECK AI",
+  "description": "AI-Based Government Application Pre-Submission Verification and Rejection-Risk Analysis System. Detect errors, verify cross-document consistency, evaluate rules, and fix issues before official submission.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
