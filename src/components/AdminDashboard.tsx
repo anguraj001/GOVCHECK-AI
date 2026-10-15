@@ -95,7 +95,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             {t.admin.title}
           </h1>
           <p className="text-xs sm:text-sm text-purple-200/80 max-w-xl">
-            {t.admin.description}
+            {t.admin.analyticsOverview}
           </p>
         </div>
 
@@ -162,8 +162,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </div>
 
             <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-xs">
-              <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-1">Corrections Performed</span>
-              <span className="text-2xl sm:text-3xl font-extrabold text-amber-600">{analytics.correctionsPerformed}</span>
+              <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-1">Corrections Required</span>
+              <span className="text-2xl sm:text-3xl font-extrabold text-amber-600">{analytics.correctionsRequired}</span>
               <span className="text-[11px] text-gray-400 mt-1 block">Pre-submission fixes</span>
             </div>
 
@@ -240,9 +240,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               Most Frequent Pre-Submission Issues Detected
             </h3>
             <div className="space-y-3">
-              {analytics.topIssues.map((iss, i) => (
+              {(analytics.issueCategories || []).map((iss, i) => (
                 <div key={i} className="flex items-center justify-between p-3.5 bg-gray-50 rounded-2xl border border-gray-100 text-xs">
-                  <span className="font-bold text-gray-800">{iss.issue}</span>
+                  <span className="font-bold text-gray-800">{iss.category}</span>
                   <span className="px-3 py-1 rounded-full font-extrabold bg-blue-100 text-blue-800">
                     {iss.count} occurrences
                   </span>

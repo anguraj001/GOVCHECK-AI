@@ -19,6 +19,7 @@ import { WizardContainer } from './components/ApplicationWizard/WizardContainer'
 import { AIAssistantChat } from './components/AIAssistantChat';
 import { AdminDashboard } from './components/AdminDashboard';
 import { StaticPages } from './components/StaticPages';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -276,16 +277,22 @@ export default function App() {
             )}
 
             {currentView === 'wizard' && activeWizardApp && activeWizardService && (
-              <WizardContainer
-                service={activeWizardService}
-                application={activeWizardApp}
+              <ErrorBoundary 
+                boundaryName="ApplicationWizard" 
                 language={language}
-                onApplicationUpdate={(updatedApp) => {
-                  setActiveWizardApp(updatedApp);
-                  refreshApplications();
-                }}
-                onExit={() => setCurrentView(user ? 'dashboard' : 'home')}
-              />
+                onReset={() => setCurrentView('dashboard')}
+              >
+                <WizardContainer
+                  service={activeWizardService}
+                  application={activeWizardApp}
+                  language={language}
+                  onApplicationUpdate={(updatedApp) => {
+                    setActiveWizardApp(updatedApp);
+                    refreshApplications();
+                  }}
+                  onExit={() => setCurrentView(user ? 'dashboard' : 'home')}
+                />
+              </ErrorBoundary>
             )}
 
             {currentView === 'assistant' && (

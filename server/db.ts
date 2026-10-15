@@ -1,3 +1,34 @@
+/**
+ * GOVCHECK AI - In-Memory State Storage & Relational Database Layer
+ *
+ * Architecture & Data Model:
+ * -----------------------------------------------------------------------------
+ * 1. `users`: Citizen and Administrative user accounts with encrypted credentials.
+ *    - Primary Key: `id` (e.g. "usr-citizen-1")
+ *    - Relational link: `applications.citizenId` -> `users.id`
+ *
+ * 2. `services`: Configurable Government Services catalog (e.g. Income, Community,
+ *    First Graduate, Legal Heir, Encumbrance Certificate, Trade License).
+ *    - Primary Key: `id` (e.g. "srv-income-cert")
+ *    - Embedded Entities:
+ *      - `fields`: Schema definition of dynamic form fields and constraints.
+ *      - `documents`: Mandatory and optional upload requirements with extraction rules.
+ *      - `rules`: Declarative eligibility criteria, format checks, and threshold rules.
+ *
+ * 3. `applications`: Citizen application instances progressing through verification.
+ *    - Primary Key: `id` (e.g. "app-...")
+ *    - Foreign Keys: `citizenId` -> `users.id`, `serviceId` -> `services.id`
+ *    - Embedded Entities:
+ *      - `uploadedDocuments`: Uploaded digital files and extracted OCR/multimodal data.
+ *      - `currentIssues`: Active verification issues with localized explanations.
+ *      - `verificationRuns`: Complete historical ledger of every verification execution.
+ *
+ * 4. `auditLogs`: Immutable system audit ledger for regulatory and compliance transparency.
+ *    - Tracks user registrations, logins, verifications, corrections, and admin changes.
+ *
+ * 5. `notifications`: Real-time user notifications for verification results & alerts.
+ */
+
 import { 
   User, 
   GovService, 
@@ -11,7 +42,10 @@ import {
 } from '../src/types';
 import { hashPassword } from './auth';
 
-// In-memory persistent state storage
+/**
+ * In-Memory Application Database with pre-seeded government services,
+ * sample applications, and user accounts.
+ */
 class Database {
   users: (User & { passwordHash: string })[] = [];
   services: GovService[] = [];

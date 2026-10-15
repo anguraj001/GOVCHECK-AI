@@ -85,13 +85,13 @@ export const DynamicFormStep: React.FC<DynamicFormStepProps> = ({
           const val = localData[field.fieldKey] ?? '';
 
           return (
-            <div key={field.id} className={field.type === 'textarea' ? 'md:col-span-2' : ''}>
+            <div key={field.id} className={field.fieldType === 'address' ? 'md:col-span-2' : ''}>
               <label className="block text-xs font-bold text-gray-700 mb-1">
                 {language === 'ta' ? field.labelTa : field.labelEn}
                 {field.isRequired && <span className="text-red-500 ml-1">*</span>}
               </label>
 
-              {field.type === 'select' ? (
+              {field.fieldType === 'dropdown' ? (
                 <select
                   id={`field-${field.fieldKey}`}
                   value={val}
@@ -101,13 +101,17 @@ export const DynamicFormStep: React.FC<DynamicFormStepProps> = ({
                   }`}
                 >
                   <option value="">{language === 'ta' ? '-- தேர்ந்தெடுக்கவும் --' : '-- Select Option --'}</option>
-                  {field.options?.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {language === 'ta' ? opt.labelTa : opt.labelEn}
-                    </option>
-                  ))}
+                  {field.options?.map((opt: string | { value: string; labelEn?: string; labelTa?: string }) => {
+                    const optValue = typeof opt === 'string' ? opt : opt.value;
+                    const optLabel = typeof opt === 'string' ? opt : (language === 'ta' ? opt.labelTa || opt.value : opt.labelEn || opt.value);
+                    return (
+                      <option key={optValue} value={optValue}>
+                        {optLabel}
+                      </option>
+                    );
+                  })}
                 </select>
-              ) : field.type === 'textarea' ? (
+              ) : field.fieldType === 'address' ? (
                 <textarea
                   id={`field-${field.fieldKey}`}
                   rows={3}
@@ -121,7 +125,7 @@ export const DynamicFormStep: React.FC<DynamicFormStepProps> = ({
               ) : (
                 <input
                   id={`field-${field.fieldKey}`}
-                  type={field.type === 'number' ? 'number' : (field.type === 'date' ? 'date' : 'text')}
+                  type={field.fieldType === 'number' ? 'number' : (field.fieldType === 'date' ? 'date' : 'text')}
                   value={val}
                   onChange={(e) => handleFieldChange(field.fieldKey, e.target.value)}
                   placeholder={language === 'ta' ? field.placeholderTa : field.placeholderEn}

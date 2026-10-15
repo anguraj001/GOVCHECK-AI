@@ -43,7 +43,16 @@ async function startServer() {
 
   // --- API Routes ---
 
-  // Health check
+  // =========================================================================
+  // SYSTEM HEALTH & DIAGNOSTICS ENDPOINTS
+  // =========================================================================
+
+  /**
+   * GET /api/health
+   * Public health-check probe returning engine version, server timestamp, and AI status.
+   *
+   * @returns { status: 'ok', service: string, version: string, timestamp: string, aiStatus: 'active' | 'fallback-mode' }
+   */
   app.get('/api/health', (req, res) => {
     res.json({
       status: 'ok',
@@ -54,7 +63,21 @@ async function startServer() {
     });
   });
 
-  // --- 1. Authentication Endpoints ---
+  // =========================================================================
+  // 1. AUTHENTICATION & IDENTITY ENDPOINTS
+  // =========================================================================
+
+  /**
+   * POST /api/auth/register
+   * Registers a new citizen user account with bcrypt salted password hashing.
+   *
+   * @param req.body.name - Full name of the applicant.
+   * @param req.body.email - Unique email address.
+   * @param req.body.mobile - Mobile phone number.
+   * @param req.body.password - Plain-text password (hashed with bcrypt 10 rounds).
+   * @param req.body.preferredLanguage - 'en' | 'ta' (defaults to 'en').
+   * @returns { user: User, token: string }
+   */
   app.post('/api/auth/register', (req, res) => {
     try {
       const { name, email, mobile, password, preferredLanguage } = req.body;
@@ -93,6 +116,14 @@ async function startServer() {
     }
   });
 
+  /**
+   * POST /api/auth/login
+   * Authenticates user credentials and issues an HMAC-SHA256 signed bearer token.
+   *
+   * @param req.body.email - Registered email address.
+   * @param req.body.password - Plain-text password to verify against bcrypt hash.
+   * @returns { user: User, token: string }
+   */
   app.post('/api/auth/login', (req, res) => {
     try {
       const { email, password } = req.body;
@@ -123,6 +154,13 @@ async function startServer() {
     }
   });
 
+  /**
+   * GET /api/auth/me
+   * Retrieves profile information for the currently authenticated bearer token.
+   * Header required: `Authorization: Bearer <token>`
+   *
+   * @returns { user: User }
+   */
   app.get('/api/auth/me', authenticate, (req, res) => {
     const userPayload = (req as any).user;
     const user = db.findUserById(userPayload.id);
@@ -131,18 +169,42 @@ async function startServer() {
     res.json({ user: userClean });
   });
 
-  // --- 2. Government Services Endpoints ---
+  // =========================================================================
+  // 2. GOVERNMENT SERVICES CONFIGURATION ENDPOINTS
+  // =========================================================================
+
+  /**
+   * GET /api/services
+   * Public catalog of all available pre-configured government services.
+   *
+   * @returns { services: GovService[] }
+   */
   app.get('/api/services', (req, res) => {
     const services = db.getAllServices();
     res.json({ services });
   });
 
+  /**
+   * GET /api/services/:id
+   * Retrieves full service specification including dynamic fields, document requirements, and rules.
+   *
+   * @param req.params.id - Service identifier (e.g. "srv-income-cert")
+   * @returns { service: GovService }
+   */
   app.get('/api/services/:id', (req, res) => {
     const service = db.getServiceById(req.params.id);
     if (!service) return res.status(404).json({ error: 'Service not found' });
     res.json({ service });
   });
 
+  /**
+   * POST /api/admin/services
+   * Administrative endpoint to create a new government service configuration.
+   * Header required: `Authorization: Bearer <admin-token>`
+   *
+   * @param req.body - Complete GovService definition object.
+   * @returns { service: GovService }
+   */
   app.post('/api/admin/services', authenticate, requireAdmin, (req, res) => {
     try {
       const newService = db.createService(req.body);
@@ -160,6 +222,15 @@ async function startServer() {
     }
   });
 
+  /**
+   * PUT /api/admin/services/:id
+   * Administrative endpoint to update fields, rules, or document configurations of a service.
+   * Header required: `Authorization: Bearer <admin-token>`
+   *
+   * @param req.params.id - Service identifier.
+   * @param req.body - Partial<GovService> containing fields/documents/rules to update.
+   * @returns { service: GovService }
+   */
   app.put('/api/admin/services/:id', authenticate, requireAdmin, (req, res) => {
     try {
       const updated = db.updateService(req.params.id, req.body);
@@ -178,7 +249,17 @@ async function startServer() {
     }
   });
 
-  // --- 3. Applications Endpoints ---
+  // =========================================================================
+  // 3. CITIZEN APPLICATION DRAFT & SUBMISSION ENDPOINTS
+  // =========================================================================
+
+  /**
+   * GET /api/applications
+   * Lists applications belonging to the authenticated citizen (or all applications if admin).
+   * Header required: `Authorization: Bearer <token>`
+   *
+   * @returns { applications: Application[] }
+   */
   app.get('/api/applications', authenticate, (req, res) => {
     const user = (req as any).user;
     if (user.role === 'admin') {
@@ -188,6 +269,14 @@ async function startServer() {
     res.json({ applications });
   });
 
+  /**
+   * GET /api/applications/:id
+   * Retrieves full details, documents, and verification issues for an application.
+   * Header required: `Authorization: Bearer <token>`
+   *
+   * @param req.params.id - Application identifier.
+   * @returns { application: Application }
+   */
   app.get('/api/applications/:id', authenticate, (req, res) => {
     const user = (req as any).user;
     const app = db.getApplicationById(req.params.id);
@@ -198,6 +287,15 @@ async function startServer() {
     res.json({ application: app });
   });
 
+  /**
+   * POST /api/applications
+   * Creates a new draft application instance linked to a specific service.
+   * Header required: `Authorization: Bearer <token>`
+   *
+   * @param req.body.serviceId - Target GovService identifier.
+   * @param req.body.dynamicFormData - Initial form input data dictionary.
+   * @returns { application: Application }
+   */
   app.post('/api/applications', authenticate, (req, res) => {
     try {
       const user = (req as any).user;
@@ -227,6 +325,16 @@ async function startServer() {
     }
   });
 
+  /**
+   * PUT /api/applications/:id
+   * Updates citizen form field entries or application status.
+   * Header required: `Authorization: Bearer <token>`
+   *
+   * @param req.params.id - Application identifier.
+   * @param req.body.dynamicFormData - Updated field key-value pairs.
+   * @param req.body.status - Optional updated status code.
+   * @returns { application: Application }
+   */
   app.put('/api/applications/:id', authenticate, (req, res) => {
     try {
       const user = (req as any).user;
@@ -247,6 +355,14 @@ async function startServer() {
     }
   });
 
+  /**
+   * DELETE /api/applications/:id
+   * Removes an application draft and all associated uploads.
+   * Header required: `Authorization: Bearer <token>`
+   *
+   * @param req.params.id - Application identifier.
+   * @returns { success: true }
+   */
   app.delete('/api/applications/:id', authenticate, (req, res) => {
     const user = (req as any).user;
     const success = db.deleteApplication(req.params.id, user.role === 'admin' ? undefined : user.id);
@@ -263,7 +379,23 @@ async function startServer() {
     res.json({ success: true });
   });
 
-  // --- 4. Document Upload and AI Analysis ---
+  // =========================================================================
+  // 4. DOCUMENT UPLOAD & MULTIMODAL AI ANALYSIS ENDPOINTS
+  // =========================================================================
+
+  /**
+   * POST /api/applications/:id/documents
+   * Uploads an official supporting document and triggers Gemini multimodal OCR & field extraction.
+   * Header required: `Authorization: Bearer <token>`
+   *
+   * @param req.params.id - Application identifier.
+   * @param req.body.docTypeKey - Identifier matching service.documents (e.g. "AADHAAR_CARD").
+   * @param req.body.fileName - Original file name.
+   * @param req.body.fileType - MIME type (e.g. "application/pdf", "image/jpeg").
+   * @param req.body.fileSize - Size in bytes.
+   * @param req.body.fileDataUrl - Base64 Data URL representation of the document.
+   * @returns { application: Application, document: UploadedDocument }
+   */
   app.post('/api/applications/:id/documents', authenticate, async (req, res) => {
     try {
       const user = (req as any).user;
@@ -318,6 +450,15 @@ async function startServer() {
     }
   });
 
+  /**
+   * DELETE /api/applications/:id/documents/:docId
+   * Removes an uploaded supporting document from the application.
+   * Header required: `Authorization: Bearer <token>`
+   *
+   * @param req.params.id - Application identifier.
+   * @param req.params.docId - Document identifier.
+   * @returns { application: Application }
+   */
   app.delete('/api/applications/:id/documents/:docId', authenticate, (req, res) => {
     const user = (req as any).user;
     const app = db.getApplicationById(req.params.id);
@@ -331,7 +472,20 @@ async function startServer() {
     res.json({ application: updatedApp });
   });
 
-  // --- 5. Verification & Re-Verification Engine ---
+  // =========================================================================
+  // 5. DETERMINISTIC REJECTION-RISK VERIFICATION & AUDIT RUNS
+  // =========================================================================
+
+  /**
+   * POST /api/applications/:id/verify
+   * Executes the 4-pillar rule engine against form data and uploaded documents.
+   * Calculates a 0-100 Rejection-Risk score, logs an immutable verification run,
+   * generates itemized issues, and dispatches a citizen notification.
+   * Header required: `Authorization: Bearer <token>`
+   *
+   * @param req.params.id - Application identifier.
+   * @returns { application: Application, assessment: RiskAssessment, issues: VerificationIssue[], verificationRun: VerificationRun }
+   */
   app.post('/api/applications/:id/verify', authenticate, (req, res) => {
     try {
       const user = (req as any).user;
@@ -404,7 +558,22 @@ async function startServer() {
     }
   });
 
-  // --- 6. Correction Actions ---
+  // =========================================================================
+  // 6. GUIDED CITIZEN CORRECTION ACTIONS
+  // =========================================================================
+
+  /**
+   * POST /api/applications/:id/correct
+   * Applies guided fixes from the Correction Center to resolve identified discrepancies.
+   * Header required: `Authorization: Bearer <token>`
+   *
+   * @param req.params.id - Application identifier.
+   * @param req.body.issueId - Identifier of the issue being addressed.
+   * @param req.body.actionType - 'RESOLVE' | 'USER_CONFIRM'.
+   * @param req.body.updatedFieldKey - Form field modified.
+   * @param req.body.updatedFieldValue - New value assigned to field.
+   * @returns { application: Application }
+   */
   app.post('/api/applications/:id/correct', authenticate, (req, res) => {
     try {
       const user = (req as any).user;
@@ -453,7 +622,21 @@ async function startServer() {
     }
   });
 
-  // --- 7. AI Assistant Chat ---
+  // =========================================================================
+  // 7. BILINGUAL AI ASSISTANT CHAT
+  // =========================================================================
+
+  /**
+   * POST /api/assistant/chat
+   * Context-aware conversational AI assistant powered by Gemini 2.5 Flash.
+   * Provides guidance on rules, required certificates, and document upload specs.
+   * Header required: `Authorization: Bearer <token>`
+   *
+   * @param req.body.message - User prompt or question.
+   * @param req.body.language - 'en' | 'ta'.
+   * @param req.body.applicationId - Optional contextual application id.
+   * @returns { replyEn: string, replyTa: string, actionSuggestion?: string }
+   */
   app.post('/api/assistant/chat', authenticate, async (req, res) => {
     try {
       const { message, language, applicationId } = req.body;
@@ -475,24 +658,59 @@ async function startServer() {
     }
   });
 
-  // --- 8. Admin Analytics & Audit Logs ---
+  // =========================================================================
+  // 8. ADMINISTRATIVE METRICS & COMPLIANCE AUDIT LOGS
+  // =========================================================================
+
+  /**
+   * GET /api/admin/analytics
+   * Aggregates verification statistics, risk distribution, service volumes, and issue frequencies.
+   * Header required: `Authorization: Bearer <admin-token>`
+   *
+   * @returns { analytics: AdminAnalytics }
+   */
   app.get('/api/admin/analytics', authenticate, requireAdmin, (req, res) => {
     const analytics = db.getAdminAnalytics();
     res.json({ analytics });
   });
 
+  /**
+   * GET /api/admin/audit-logs
+   * Retrieves immutable audit trail entries with user attribution and metadata.
+   * Header required: `Authorization: Bearer <admin-token>`
+   *
+   * @returns { logs: AuditLog[] }
+   */
   app.get('/api/admin/audit-logs', authenticate, requireAdmin, (req, res) => {
     const logs = db.getAuditLogs(100);
     res.json({ logs });
   });
 
-  // --- 9. Notifications ---
+  // =========================================================================
+  // 9. REAL-TIME CITIZEN NOTIFICATIONS
+  // =========================================================================
+
+  /**
+   * GET /api/notifications
+   * Retrieves unread and historical notifications for the current authenticated citizen.
+   * Header required: `Authorization: Bearer <token>`
+   *
+   * @returns { notifications: AppNotification[] }
+   */
   app.get('/api/notifications', authenticate, (req, res) => {
     const user = (req as any).user;
     const notifs = db.getNotifications(user.id);
     res.json({ notifications: notifs });
   });
 
+  /**
+   * POST /api/notifications/:id/read
+   * Marks a specific notification as acknowledged/read.
+   * Header required: `Authorization: Bearer <token>`
+   *
+   * @param req.params.id - Notification identifier.
+   * @returns { success: true }
+   */
   app.post('/api/notifications/:id/read', authenticate, (req, res) => {
     db.markNotificationRead(req.params.id);
     res.json({ success: true });
